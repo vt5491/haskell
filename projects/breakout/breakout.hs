@@ -9,26 +9,24 @@
   import Haste.Events
   import Data.IORef
 
-  -- Note: this is called directly by main.js. it's the main Haskell entry point.
-  breakoutHsMain :: IO ()
-  breakoutHsMain =  do
-    elems <- elemsByQS document "#canvas"
-    Just canvas <- fromElem $ elems !! 0
-    renderState canvas initialState
-    stateRef <- newIORef $ initialState
-    onEvent canvas KeyDown $ \keyData -> movePaddle keyData stateRef
-    animate  canvas stateRef
+  doItStr :: String -> Int
+  doItStr x = length x
 
-  width, height,ballRadius, paddleWidth, paddleHeight :: Double
-  width = 500 -- width of canvas
-  height = 600 -- height of canvas
+  doItInt :: Int -> Int
+  doItInt x =  x
+  -- width, height,ballRadius, paddleWidth, paddleHeight :: Double
+  ballRadius, paddleWidth, paddleHeight :: Double
+  -- note we init width and heigh in breakoutHsMain
+  -- width = 500 -- width of canvas
+  -- height = 600 -- height of canvas
   ballRadius = 5 --radius of ball
   -- paddleHeight = 5 -- height of paddle
   paddleHeight = 15 -- height of paddle
   paddleWidth = 150 -- width of paddle
   paddleVx = 5
-  halfWidth = width / 2 -- well, half the width
-  halfHeight = height / 2 --also half the height
+  -- halfWidth = width / 2 -- well, half the width
+  -- halfHeight = height / 2 --also half the height
+  -- cw :: Int
 
   data GameState = GameState{
     ballPos :: Point, -- position of ball
@@ -44,6 +42,58 @@
   paddlePos = (300 / 2) - 75, --position around center of canvas
   score = 0
   }
+
+  -- Note: this is called directly by main.js. it's the main Haskell entry point.
+  breakoutHsMain :: IO ()
+  breakoutHsMain =  do
+    elems <- elemsByQS document "#canvas"
+    Just canvas <- fromElem $ elems !! 0
+    -- let canvasWidth =<<  getAttr canvas "width"
+    -- writeLog "canvasWidth=" ++ canvasWidth
+    -- let canvasWidth
+    -- in  getAttr canvas "width"
+    -- let cw =
+    -- in
+    -- width <- do
+    --   getAttr canvas "width"
+    -- cw <- getAttr canvas "width" -- works
+    print $ doItInt 7
+    getAttr canvas "width"
+    -- canvasWidth :: String
+    let abc = 7 + 1
+    print $ "abc=" ++ show abc
+    width <- do
+      getAttr canvas "width"
+    print $ "width=" ++ width
+    -- print $ doItStr $ width
+    -- print $ doItInt $ (read width :: Int)
+    -- convert from String to Int
+    let canvasWidth = (read width :: Int)
+    print $ "canvasWidth=" ++ show canvasWidth
+    print $  "doItInt canvasWidth=" ++ (show $ doItInt  canvasWidth)
+
+    -- let cw = read (<- do
+    --                     getAttr canvas "width" )
+    --   :: Int
+    -- let cw = read $ sm :: Int
+    --   in
+    --     sm <- do
+    --             getAttr canvas "width"
+    -- let cw = getAttr canvas "width"
+    --     in
+
+    -- print $ canvasWidth + 7
+    canvasHeight <- do
+      getAttr canvas "height"
+    -- print canvasHeight
+    -- writeLog width
+
+    -- do
+    --   writeLog "width=" ++ show 7
+    renderState canvas initialState
+    stateRef <- newIORef $ initialState
+    onEvent canvas KeyDown $ \keyData -> movePaddle keyData stateRef
+    animate  canvas stateRef
 
   gamePicture :: GameState -> Picture ()
   gamePicture state = do
@@ -69,16 +119,13 @@
     -- case fromIntegral keyCode of
     case keyCode of
       65 -> do
-        writeLog "A key pressed"
         atomicModifyIORef stateRef (\state -> ((state {paddlePos = (paddlePos state) - paddleVx}), ()))
       68 -> do
-        writeLog "d key pressed"
         atomicModifyIORef stateRef (\state -> ((state {paddlePos = (paddlePos state) + paddleVx}), ()))
       83 -> do
-        writeLog "s key pressed"
         atomicModifyIORef stateRef (\state -> ((state {paddlePos = (paddlePos state) + paddleVx}), ()))
       _ -> do
-        writeLog "key pressedkG"
+        writeLog "invalid key pressed"
 
   moveBall :: GameState -> GameState
   moveBall state = state {ballPos = (x + vx, y + vy)} --increment by vx and vy
