@@ -36,11 +36,17 @@
   type Vx = Double
   type Vy = Double
 
+  data GameObj = Wall | Paddle | Brick | Ball
+    deriving (Show, Eq)
+
+  -- this is for dynamic data only e.g data that can change on each tick.
   data GameState = GameState{
     ballPos :: Point, -- position of ball
     ballSpeed :: Point, -- how far will ball move in a single update
     paddlePos:: Double, -- start position of paddle on x axis
-    score  :: Int
+    score  :: Int,
+    wallPos :: Point, -- position of upper left
+    wallDim :: Point -- width and height
   }
 
   initialState :: GameState
@@ -49,7 +55,9 @@
   -- ballSpeed = (8, 10),
   ballSpeed = (2, 3),
   paddlePos = (300 / 2) - 75, --position around center of canvas
-  score = 0
+  score = 0,
+  wallPos = (0, 0),
+  wallDim = (canvasWidth, canvasHeight)
   }
 
   -- Note: this is called directly by main.js. it's the main Haskell entry point.
@@ -57,15 +65,6 @@
   breakoutHsMain =  do
     elems <- elemsByQS document "#canvas"
     Just canvas <- fromElem $ elems !! 0
-    -- let canvasWidth =<<  getAttr canvas "width"
-    -- writeLog "canvasWidth=" ++ canvasWidth
-    -- let canvasWidth
-    -- in  getAttr canvas "width"
-    -- let cw =
-    -- in
-    -- width <- do
-    --   getAttr canvas "width"
-    -- cw <- getAttr canvas "width" -- works
     print $ doItInt 7
     getAttr canvas "width"
     -- canvasWidth :: String
@@ -82,28 +81,33 @@
     print $ "canvasWidth=" ++ show canvasWidth
     print $  "doItInt canvasWidth=" ++ (show $ doItInt  canvasWidth)
 
-    -- let cw = read (<- do
-    --                     getAttr canvas "width" )
-    --   :: Int
-    -- let cw = read $ sm :: Int
-    --   in
-    --     sm <- do
-    --             getAttr canvas "width"
-    -- let cw = getAttr canvas "width"
-    --     in
-
-    -- print $ canvasWidth + 7
     canvasHeight <- do
       getAttr canvas "height"
-    -- print canvasHeight
-    -- writeLog width
 
-    -- do
-    --   writeLog "width=" ++ show 7
     renderState canvas initialState
     stateRef <- newIORef $ initialState
     onEvent canvas KeyDown $ \keyData -> movePaddle keyData stateRef
-    animate  canvas stateRef
+    -- let distance = distBetween (0, 0) Wall 1 1
+    state <- readIORef stateRef
+    let distance = distBetween (0, 20) Wall state
+    print $ "distance=" ++ show distance
+    -- animate  canvas stateRef
+
+  -- wallShape :: Shape ()
+  -- wallShape = do
+  --   -- rect (0, 0) (canvasWidth - 0, canvasHeight - 0)
+  --   rect (0, 0) (fst $ wallDim state, snd $ wallDim state)
+  --
+  -- wall :: Picture ()
+  -- wall = stroke wallShape
+
+  -- Draw the boundary wall
+  wall :: Rect -> Picture ()
+  wall (Rect x1 y1 x2 y2) = black $ do
+    stroke $ rect (x1, y1) (x2, y2)
+
+  -- wall pt = color (RGB 243 114 89) $ do
+  --     fill $ circle pt ballRadius
 
   gamePicture :: GameState -> Picture ()
   gamePicture state = do
@@ -111,16 +115,29 @@
     let x1 = paddlePos state -- paddle start position
         x2 = x1 + paddleWidth -- end position of paddle
     paddle $ Rect x1 460 x2 480 -- paddle
+    -- wall $ Rect  (fst $ wallPos state) (snd $ wallPos state) (fst $ wallDim state) (snd $ wallDim state)
+    wall $ Rect wallPosX wallPosY wallDimX wallDimY
+    where
+      wallPosX = fst $ wallPos state
+      wallPosY = snd $ wallPos state
+      wallDimX = fst $ wallDim state
+      wallDimY = snd $ wallDim state
+    -- wall $ Rect 0 0 canvasWidth canvasHeight
+    -- wall $ Rect 0 0 canvasWidth  (snd $ wallDim state)
 
   renderState :: Canvas -> GameState -> IO ()
   renderState canvas state = render canvas $ do
     gamePicture state
+    -- wall
 
   paddleShape :: Shape ()
   paddleShape = rect (-20, -10) (20, 10)
 
   white :: Picture () -> Picture ()
   white = color (RGB 255 255 255) -- or whichever color you like
+
+  black :: Picture () -> Picture ()
+  black = color (RGB 10 10 10)
 
   paddle :: Rect -> Picture ()
   paddle (Rect x1 y1 x2 y2) = white $ do
@@ -148,6 +165,19 @@
     where
       (x, y)   = ballPos state
       (vx, vy) = ballSpeed state
+
+  -- return the directional distance between two points.
+  -- Vx and Vy provide the direction of the projectile
+  distBetween :: Point -> GameObj -> GameState-> Double
+  distBetween p Wall state = wallBottomY - y
+    where
+      -- TODO: deal with case where vy =0
+      x = fst p
+      y = snd p
+      vx = fst $ ballSpeed state
+      vy = snd $ ballSpeed state
+      theta = atan $ vx / vy
+      wallBottomY = (snd $ wallPos state) + (snd $ wallDim state)
 
   -- this will return the position at which something hits the wall, even if the
   -- current point is beyond the wall (that's why we need Vx and Vy so we
