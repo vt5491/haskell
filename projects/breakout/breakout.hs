@@ -25,6 +25,8 @@
   -- height = 600 -- height of canvas
   canvasWidth = 640
   canvasHeight = 480
+  wallPos = (0, 0)
+  wallDim = (canvasWidth, canvasHeight)
   ballRadius = 5 --radius of ball
   -- paddleHeight = 5 -- height of paddle
   paddleHeight = 15 -- height of paddle
@@ -39,14 +41,17 @@
   data GameObj = Wall | Paddle | Brick | Ball
     deriving (Show, Eq)
 
+  data Side = TopSide | BottomSide | LeftSide | RightSide
+    deriving (Show, Eq)
+
   -- this is for dynamic data only e.g data that can change on each tick.
   data GameState = GameState{
     ballPos :: Point, -- position of ball
     ballSpeed :: Point, -- how far will ball move in a single update
     paddlePos:: Double, -- start position of paddle on x axis
-    score  :: Int,
-    wallPos :: Point, -- position of upper left
-    wallDim :: Point -- width and height
+    score  :: Int
+    -- wallPos :: Point, -- position of upper left
+    -- wallDim :: Point -- width and height
   }
 
   initialState :: GameState
@@ -55,9 +60,9 @@
   -- ballSpeed = (8, 10),
   ballSpeed = (2, 3),
   paddlePos = (300 / 2) - 75, --position around center of canvas
-  score = 0,
-  wallPos = (0, 0),
-  wallDim = (canvasWidth, canvasHeight)
+  score = 0
+  -- wallPos = (0, 0),
+  -- wallDim = (canvasWidth, canvasHeight)
   }
 
   -- Note: this is called directly by main.js. it's the main Haskell entry point.
@@ -89,8 +94,14 @@
     onEvent canvas KeyDown $ \keyData -> movePaddle keyData stateRef
     -- let distance = distBetween (0, 0) Wall 1 1
     state <- readIORef stateRef
-    let distance = distBetween (0, 20) Wall state
+    let distance = distBetween (20, 20) Wall state
     print $ "distance=" ++ show distance
+    -- let a = abc (400, 600)
+    -- let b = def (400, 600) 1 1
+    -- let rightWallCoords =
+    print "hi"
+    -- let nearestSide = nearestSide  (400, 600) 1 1
+    -- print $ "nearestSide=" ++ show nearestSide
     -- animate  canvas stateRef
 
   -- wallShape :: Shape ()
@@ -118,10 +129,10 @@
     -- wall $ Rect  (fst $ wallPos state) (snd $ wallPos state) (fst $ wallDim state) (snd $ wallDim state)
     wall $ Rect wallPosX wallPosY wallDimX wallDimY
     where
-      wallPosX = fst $ wallPos state
-      wallPosY = snd $ wallPos state
-      wallDimX = fst $ wallDim state
-      wallDimY = snd $ wallDim state
+      wallPosX = fst wallPos
+      wallPosY = snd wallPos
+      wallDimX = fst wallDim
+      wallDimY = snd wallDim
     -- wall $ Rect 0 0 canvasWidth canvasHeight
     -- wall $ Rect 0 0 canvasWidth  (snd $ wallDim state)
 
@@ -166,10 +177,25 @@
       (x, y)   = ballPos state
       (vx, vy) = ballSpeed state
 
+  -- TODO: move up into the constants section
+  -- For each side of the wall, associate it's "constant" value e.g the right side
+  -- has a constant x and variable y, so associate the constant x.
+  -- This is just to boilerplate code we use in several places.
+  wallCoords :: [(Side, Double)]
+  wallCoords = [
+    (TopSide, snd wallPos),
+    (BottomSide, (snd wallPos) + (snd wallDim)),
+    (LeftSide, fst wallPos),
+    (RightSide, (fst wallPos) + (fst wallDim)) ]
   -- return the directional distance between two points.
   -- Vx and Vy provide the direction of the projectile
+  -- TODO: consider passing all the state values as args, so you don't couple
+  -- to the gameState e.g. this func could be used in other games.
   distBetween :: Point -> GameObj -> GameState-> Double
-  distBetween p Wall state = wallBottomY - y
+  -- distBetween p Wall state | trace ("wallBottomY - y=" ++ wallBottomY - y) False = undefined
+  -- distBetween p Wall state | trace ("wallBottomX - x=" ++ show ((fst $ wallPos state) + (fst $ wallDim state)) - (fst p) ) False = undefined
+  distBetween p Wall state | trace ("p=" ++ show  (snd p)) False=undefined
+  distBetween p Wall state = sqrt $ (wallBottomY - y)**2 + (wallBottomX - x)**2
     where
       -- TODO: deal with case where vy =0
       x = fst p
@@ -177,7 +203,43 @@
       vx = fst $ ballSpeed state
       vy = snd $ ballSpeed state
       theta = atan $ vx / vy
-      wallBottomY = (snd $ wallPos state) + (snd $ wallDim state)
+      -- wallBottomX = (fst $ wallPos state) + (fst $ wallDim state)
+      -- wallBottomY = (snd $ wallPos state) + (snd $ wallDim state)
+      wallBottomX = (fst wallPos) + (fst wallDim)
+      wallBottomY = (snd wallPos) + (snd wallDim)
+      -- trace ("wallBottomY" ++ show wallBottomY) False= undefined
+
+  -- abc :: Point -> Side
+  -- abc _ = Bottom
+  --
+  -- -- def :: Int -> Side
+  -- def :: Point -> Vx -> Vy -> Side
+  -- def _ _ _= Bottom
+
+  -- Note: we only call this if a (potential) collision is detected, so
+  -- we know were always one vx or vy delta from hitting a wall.
+  nearestSide :: Point -> Vx -> Vy -> Side
+  -- nearestSide _ _ _ = Bottom
+  nearestSide p vx vy
+    -- upward to the right
+    | (vx > 0) && (vy < 0) && ((y + vy) <= topSide)  = TopSide
+    | (vx > 0) && (vy < 0) && ((y + vy) > topSide)  = RightSide
+    -- upward to the left
+    | (vx < 0) && (vy < 0) && ((y + vy) <= topSide)  = TopSide
+    | (vx < 0) && (vy < 0) && ((y + vy) > topSide)  = LeftSide
+    -- downward to the right
+    | (vx > 0) && (vy > 0) && ((x + vx) >= rightSide)  = RightSide
+    | (vx > 0) && (vy > 0) && ((x + vx) < rightSide)  = BottomSide
+    -- downward to the left
+    | (vx < 0) && (vy > 0) && ((x + vx) <= leftSide)  = LeftSide
+    | (vx < 0) && (vy > 0) && ((x + vx) > leftSide)  = BottomSide
+      where
+        x = fst p
+        y = snd p
+        topSide = snd $ (filter (\x -> fst x == TopSide) wallCoords) !! 0
+        bottomSide = snd $ (filter (\x -> fst x == BottomSide) wallCoords) !! 0
+        leftSide = snd $ (filter (\x -> fst x == LeftSide) wallCoords) !! 0
+        rightSide = snd $ (filter (\x -> fst x == RightSide) wallCoords) !! 0
 
   -- this will return the position at which something hits the wall, even if the
   -- current point is beyond the wall (that's why we need Vx and Vy so we
