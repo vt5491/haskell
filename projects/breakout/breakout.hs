@@ -27,6 +27,30 @@
   canvasHeight = 480
   wallPos = (0, 0)
   wallDim = (canvasWidth, canvasHeight)
+
+  -- For each side of the wall, associate it's "constant" value e.g the right side
+  -- has a constant x and variable y, so associate the constant x.
+  -- This is just to boilerplate code we use in several places.
+  wallCoords :: [(Side, Double)]
+  wallCoords = [
+    (TopSide, snd wallPos),
+    (BottomSide, (snd wallPos) + (snd wallDim)),
+    (LeftSide, fst wallPos),
+    (RightSide, (fst wallPos) + (fst wallDim)) ]
+
+  wallTopSide = snd $ (filter (\x -> fst x == TopSide) wallCoords) !! 0
+  wallBottomSide = snd $ (filter (\x -> fst x == BottomSide) wallCoords) !! 0
+  wallLeftSide = snd $ (filter (\x -> fst x == LeftSide) wallCoords) !! 0
+  wallRightSide = snd $ (filter (\x -> fst x == RightSide) wallCoords) !! 0
+
+  -- Don't treat the wall as one object, but as basically four separate objects
+  -- Each block is two points, from left to right and top to bottom.
+  -- actully, just treat as a line for simplicity.
+  wallLineTop = ((fst wallPos, snd wallPos), (fst wallPos + fst wallDim, snd wallPos))
+  wallLineRight = (snd wallLineTop, (fst wallPos + fst wallDim, snd wallPos + snd wallDim))
+  wallLineBottom = (fst wallLineTop, snd wallLineRight)
+  wallLineLeft = (fst wallLineTop, fst wallLineBottom)
+
   ballRadius = 5 --radius of ball
   -- paddleHeight = 5 -- height of paddle
   paddleHeight = 15 -- height of paddle
@@ -38,11 +62,13 @@
   type Vx = Double
   type Vy = Double
 
-  data GameObj = Wall | Paddle | Brick | Ball
+  data GameObj = Wall | Paddle | Brick | Ball | WallSide
     deriving (Show, Eq)
 
   data Side = TopSide | BottomSide | LeftSide | RightSide
     deriving (Show, Eq)
+
+  type WallSide = Side
 
   -- this is for dynamic data only e.g data that can change on each tick.
   data GameState = GameState{
@@ -56,7 +82,8 @@
 
   initialState :: GameState
   initialState = GameState{
-  ballPos = (20, 20),
+  -- ballPos = (20, 20),
+  ballPos = (320, 478),
   -- ballSpeed = (8, 10),
   ballSpeed = (2, 3),
   paddlePos = (300 / 2) - 75, --position around center of canvas
@@ -94,12 +121,33 @@
     onEvent canvas KeyDown $ \keyData -> movePaddle keyData stateRef
     -- let distance = distBetween (0, 0) Wall 1 1
     state <- readIORef stateRef
-    let distance = distBetween (20, 20) Wall state
+    let distance = distBetween1 (20, 20) Wall state
     print $ "distance=" ++ show distance
+
+    let wallHit = collisionTest (1000, 100) Wall
+    print $ "wallHit1=" ++ show wallHit
+    let wallHit2 = collisionTest (10, 100) Wall
+    print $ "wallHit2=" ++ show wallHit2
+    let wallHit3 = collisionTest (10, 1000) Wall
+    print $ "wallHit3=" ++ show wallHit3
+    -- let wallHit4 = collisionTest (-10, 100) Wall
+    let wallHit4 = collisionTest (644, 20) Wall
+    print $ "wallHit4=" ++ show wallHit4
+    print $ "wallRightSide=" ++ show wallRightSide
+
+    let collisionPoint = collisionWall (320, 481) 4 4
+    print $ "collisionPoint=" ++ show collisionPoint
+
+    let np = nextPos2 Ball state
+    print $ "nextPos=" ++ show np
+    -- let collisionPoint2 = collisionWall (644, 20) 4 1
+    -- print $ "collisionPoint2=" ++ show collisionPoint2
+    -- let collisionPoint3 = collisionWall (20, 20) 4 1
+    -- print $ "collisionPoint3=" ++ show collisionPoint3
     -- let a = abc (400, 600)
     -- let b = def (400, 600) 1 1
     -- let rightWallCoords =
-    print "hi"
+    -- print "hi"
     -- let nearestSide = nearestSide  (400, 600) 1 1
     -- print $ "nearestSide=" ++ show nearestSide
     -- animate  canvas stateRef
@@ -177,25 +225,16 @@
       (x, y)   = ballPos state
       (vx, vy) = ballSpeed state
 
-  -- TODO: move up into the constants section
-  -- For each side of the wall, associate it's "constant" value e.g the right side
-  -- has a constant x and variable y, so associate the constant x.
-  -- This is just to boilerplate code we use in several places.
-  wallCoords :: [(Side, Double)]
-  wallCoords = [
-    (TopSide, snd wallPos),
-    (BottomSide, (snd wallPos) + (snd wallDim)),
-    (LeftSide, fst wallPos),
-    (RightSide, (fst wallPos) + (fst wallDim)) ]
+
   -- return the directional distance between two points.
   -- Vx and Vy provide the direction of the projectile
   -- TODO: consider passing all the state values as args, so you don't couple
   -- to the gameState e.g. this func could be used in other games.
-  distBetween :: Point -> GameObj -> GameState-> Double
+  distBetween1 :: Point -> GameObj -> GameState-> Double
   -- distBetween p Wall state | trace ("wallBottomY - y=" ++ wallBottomY - y) False = undefined
   -- distBetween p Wall state | trace ("wallBottomX - x=" ++ show ((fst $ wallPos state) + (fst $ wallDim state)) - (fst p) ) False = undefined
-  distBetween p Wall state | trace ("p=" ++ show  (snd p)) False=undefined
-  distBetween p Wall state = sqrt $ (wallBottomY - y)**2 + (wallBottomX - x)**2
+  distBetween1 p Wall state | trace ("p=" ++ show  (snd p)) False=undefined
+  distBetween1 p Wall state = sqrt $ (wallBottomY - y)**2 + (wallBottomX - x)**2
     where
       -- TODO: deal with case where vy =0
       x = fst p
@@ -209,12 +248,85 @@
       wallBottomY = (snd wallPos) + (snd wallDim)
       -- trace ("wallBottomY" ++ show wallBottomY) False= undefined
 
-  -- abc :: Point -> Side
-  -- abc _ = Bottom
+  distBetweenWallSide :: Point -> Vx -> Vy -> WallSide -> Double
+  distBetweenWallSide p vx vy BottomSide =
+    let dy = y - wallBottomSide
+        dx = dy / (tan theta)
+    in
+      sqrt $ (dx ** 2 + dy ** 2)
+  -- vectorBetweenWall :: Point -> WallSide -> Double
+  -- -- vectorBetweenWall p BottomSide = (x, y - wallBottomSide )
+  -- vectorBetweenWall p BottomSide = (y - snd $ fst wallLineBottom)
+    where
+      x = fst p
+      y = snd p
+      theta = atan (vy / vx)
+
+  vectBetweenWallSide :: Point -> Vx -> Vy -> WallSide -> Point
+  vectBetweenWallSide p vx vy BottomSide =
+    let dy = y - wallBottomSide
+        dx = dy / (tan theta)
+    in
+      (dx, dy)
+    where
+      x = fst p
+      y = snd p
+      theta = atan (vy / vx)
+
+  -- maybeSqrtX :: Maybe Point -> Maybe Double
+  -- maybeSqrtX Nothing = Nothing
+  -- maybeSqrtX x = sqrt $ fst x
+
+  -- nextPos :: GameObj -> GameState -> Point
+  -- nextPos Ball state =
+  --   let vx = fst $ ballSpeed state
+  --       vy = snd $ ballSpeed state
+  --       p = ballPos state
+  --       p' = (fst p + vx, snd p + vy)
+  --       -- cp = do
+  --       --   collisionWall p' vx vy
+  --       cp = collisionWall p' vx vy
+  --       -- jcp =Just $ Just cp
+  --   in
+  --     if (cp /= Nothing)
+  --       then
+  --         -- (5,5)
+  --         -- let distToWall = sqrt $ ((fst cp - fst p) ** 2 ) + ((snd cp - snd p)) ** 2
   --
-  -- -- def :: Int -> Side
-  -- def :: Point -> Vx -> Vy -> Side
-  -- def _ _ _= Bottom
+  --         -- let distToWall = do
+  --         --                   fst cp
+  --         let distToWall = maybeSqrtX cp
+  --             vectLength = sqrt $ (vx **2 + vy ** 2)
+  --             overShootRatio = distToWall / vectLength
+  --         in
+  --           (overShootRatio, 5)
+  --       else
+  --         (1,1)
+
+  nextPos2 :: GameObj -> GameState -> Maybe Point
+  nextPos2 Ball state =
+    if collisionTest p' Wall
+      then
+        -- Just (0, 0)
+        collisionWall p' vx vy
+        -- Next: do all the ratio stuff
+      else
+        Just p'
+    where
+      vx = fst $ ballSpeed state
+      vy = snd $ ballSpeed state
+      p  = ballPos state
+      p' = (fst p + vx, snd p + vy)
+  -- nextPos2 Ball state = do
+  --   let vx = fst $ ballSpeed state
+  --   let vy = snd $ ballSpeed state
+  --   -- collisionWall (ballPos state) (fst $ ballSpeed state) (snd $ ballSpeed state)
+  --   let cp = collisionWall (ballPos state) vx vy
+  --   let distToWall =
+  --   return (0.0, 0.0)
+    -- return $ Just $ Point 0.0 0.0
+    -- return $ Just $ (0.0, 0.0)
+
 
   -- Note: we only call this if a (potential) collision is detected, so
   -- we know were always one vx or vy delta from hitting a wall.
@@ -241,6 +353,21 @@
         leftSide = snd $ (filter (\x -> fst x == LeftSide) wallCoords) !! 0
         rightSide = snd $ (filter (\x -> fst x == RightSide) wallCoords) !! 0
 
+  -- collisionTest :: Point -> GameObj -> Maybe Point
+  collisionTest :: Point -> GameObj -> Bool
+  collisionTest p Wall
+    | x > wallRightSide = True
+    | x < wallLeftSide = True
+    | y > wallBottomSide = True
+    | y < wallTopSide = True
+    | otherwise = False
+      where
+        x = fst p
+        y = snd p
+
+    -- case of
+    --   x > wallRightSide -> "case 1"
+    --   y > wallBottomSide -> "case 2"
   -- this will return the position at which something hits the wall, even if the
   -- current point is beyond the wall (that's why we need Vx and Vy so we
   -- know where it came from)
@@ -249,36 +376,48 @@
   -- collisionWall :: Point -> Vx -> Vy -> IO String
   -- collisionWall :: Int -> Vx -> Vy -> IO String
   -- collisionWall p vx vy | trace ("trace collisionWall px=" ++ show (fst  p)) False = undefined
-  collisionWall p vx vy | trace ("trace collisionWall cw=" ++ show canvasWidth) False = undefined
-  -- collisionWall _ _ _ = do
-  --     print "collisionWall called"
-  --     return "hello"
+  -- collisionWall p vx vy | trace ("trace collisionWall cw=" ++ show canvasWidth) False = undefined
   -- collisionWall p vx vy | trace ("collisionWall " ++ show vx) False = undefined
-  -- collisionWall p vx vy = Just (7,6)
-  collisionWall p vx vy
-        | px > canvasWidth = Just (0,0)
-        | py > canvasHeight = Just (0,0)
-        | otherwise = Nothing
+  collisionWall p vx vy | trace ("collisionWall " ++ show p) False = undefined
+  collisionWall p vx vy | trace ("collisionWall: nearestSide= " ++ show (nearestSide  p vx vy)) False = undefined
+  collisionWall p vx vy | trace ("collisionWall: distBetweenWallSide= " ++ show (distBetweenWallSide  p vx vy BottomSide)) False = undefined
+  collisionWall p vx vy =
+    if collisionTest p Wall
+      then
+        let nearSide = nearestSide p vx vy
+        in
+          case nearSide of
+            TopSide -> Just (0.0,0)
+            LeftSide -> Just (1.0,0)
+            -- BottomSide -> Just (distBetweenWallSide p vx vy BottomSide,0)
+            -- BottomSide -> Just $ vectBetweenWallSide p vx vy BottomSide
+            -- BottomSide -> Just $ vectBetweenWallSide p vx vy BottomSide
+            BottomSide -> Just $ (x - fst deltaVect, y - snd deltaVect)
+              where
+                deltaVect = vectBetweenWallSide p vx vy BottomSide
+            RightSide -> Just (3.0,0)
+          -- Just (0,0)
+          -- | nearSide == BottomSide = Just (0,0)
+      else
+        Nothing
+        -- | px > canvasWidth = Just (0,0)
+        -- | py > canvasHeight = Just (0,0)
+        -- | otherwise = Nothing
     where
-      px = fst p
-      py = snd p
+      x = fst p
+      y = snd p
 
   animate :: Canvas -> IORef GameState -> IO ()
   animate canvas stateRef = do
     state <- readIORef stateRef -- extract state from reference object
     renderState canvas state -- draw game picture
     atomicWriteIORef stateRef $ update state -- update state and rewrite state reference^
-    -- abc <- collisionWall (round (fst $ ballPos state) :: Int)  1 1
-    -- let abc = collisionWall 1 1 1
-    -- def <- abc
-    -- print $ "abc=" ++ abc
-    -- abc <- (collisionWall $ (ballPos state) $ fst $ ballSpeed state $ snd $ ballSpeed state)
-    -- let Just abc = collisionWall (ballPos state) (fst $ ballSpeed state) (snd $ ballSpeed state)
-    -- Just abc <- collisionWall (ballPos state) (fst $ ballSpeed state) (snd $ ballSpeed state)
-    -- let abc = do
     let abc = collisionWall (ballPos state) (fst $ ballSpeed state) (snd $ ballSpeed state)
     print $ "abc=" ++  show abc
-    setTimer (Once 10) $ animate canvas stateRef
+    let np = nextPos2 Ball state
+    print $ "nextPos=" ++ show np
+
+    -- setTimer (Once 10) $ animate canvas stateRef
     return ()
     where
       update = moveBall
