@@ -8,6 +8,9 @@
   import Haste.DOM
   import Haste.Events
   import Data.IORef
+  import Data.Tuple
+  -- import Data.Tuple.Select
+  -- import Haste.Perch
 
   doItStr :: String -> Int
   doItStr x = length x
@@ -70,6 +73,7 @@
 
   type WallSide = Side
 
+  data GameStateType = BallPos | BallSpeed | PaddlePos | Score
   -- this is for dynamic data only e.g data that can change on each tick.
   data GameState = GameState{
     ballPos :: Point, -- position of ball
@@ -83,14 +87,28 @@
   initialState :: GameState
   initialState = GameState{
   -- ballPos = (20, 20),
-  ballPos = (320, 478),
+  -- ballPos = (320, 478),
+  ballPos = (120, 200),
   -- ballSpeed = (8, 10),
-  ballSpeed = (2, 3),
+  -- ballSpeed = (2, 3),
+  ballSpeed = (4, 4),
   paddlePos = (300 / 2) - 75, --position around center of canvas
   score = 0
   -- wallPos = (0, 0),
   -- wallDim = (canvasWidth, canvasHeight)
   }
+
+  -- modifyGameState :: IORef GameState -> GameStateType -> IO ()
+  -- modifyGameState stateRef PaddlePos =  atomicModifyIORef stateRef (\state -> ((state {paddlePos = (paddlePos state) - paddleVx}), ()))
+  modifyStateRefPaddlePos :: IORef GameState -> Double -> IO ()
+  modifyStateRefPaddlePos stateRef x =
+    atomicModifyIORef stateRef (\state -> ((state {paddlePos = x}), ()))
+    -- atomicWriteIORef stateRef (\state -> ((state {paddlePos = x}), ()))
+    -- atomicModifyIORef stateRef (\state -> (( (paddlePos state) = x), ()))
+    -- print $ "now in modifyStateRefPaddlePos"
+
+  -- make stateRefGlobal a global
+  -- stateRefGlobal :: IORef
 
   -- Note: this is called directly by main.js. it's the main Haskell entry point.
   breakoutHsMain :: IO ()
@@ -116,8 +134,27 @@
     canvasHeight <- do
       getAttr canvas "height"
 
-    renderState canvas initialState
     stateRef <- newIORef $ initialState
+    state <- readIORef stateRef -- extract state from reference object
+    print $ "paddlePos=" ++ show  (paddlePos state)
+    let modifyPaddlePos = modifyStateRefPaddlePos stateRef
+    modifyPaddlePos 120.0
+    state <- readIORef stateRef
+    -- let modifyGameStateByType = modifyGameState stateRef
+    -- do
+    -- atomicWriteIORef stateRef (modifyStateRefPaddlePos stateRef 30.0)
+    -- atomicWriteIORef stateRef $ changeBallSpeed state (13,3) -- works
+    -- atomicWriteIORef stateRef $ moveBall state -- update state and rewrite state reference^
+    -- state <- readIORef stateRef
+      -- return ()
+    -- state <- readIORef stateRef
+    print $ "paddlePos=" ++ show  (paddlePos state)
+    print $ "ballSpeed=" ++ show  (ballSpeed state)
+    print $ "ballPos=" ++ show  (ballPos state)
+    -- print $ "paddlePos=" ++ paddlePos
+    -- renderState canvas initialState
+    renderState canvas state
+
     onEvent canvas KeyDown $ \keyData -> movePaddle keyData stateRef
     -- let distance = distBetween (0, 0) Wall 1 1
     state <- readIORef stateRef
@@ -138,18 +175,12 @@
     let collisionPoint = collisionWall (320, 481) 4 4
     print $ "collisionPoint=" ++ show collisionPoint
 
-    let np = nextPos2 Ball state
-    print $ "nextPos=" ++ show np
-    -- let collisionPoint2 = collisionWall (644, 20) 4 1
-    -- print $ "collisionPoint2=" ++ show collisionPoint2
-    -- let collisionPoint3 = collisionWall (20, 20) 4 1
-    -- print $ "collisionPoint3=" ++ show collisionPoint3
-    -- let a = abc (400, 600)
-    -- let b = def (400, 600) 1 1
-    -- let rightWallCoords =
-    -- print "hi"
-    -- let nearestSide = nearestSide  (400, 600) 1 1
-    -- print $ "nearestSide=" ++ show nearestSide
+    -- let np = nextPos Ball state stateRef
+    -- atomicWriteIORef stateRef $ changeBallSpeed state (fst $ snd $ np, -1 * (snd $ ballSpeed state))
+    -- state <- readIORef stateRef
+    -- print $ "nextPos=" ++ show (fst np)
+    -- print $ "ballSpeed=" ++ show (snd np)
+
     -- animate  canvas stateRef
 
   -- wallShape :: Shape ()
@@ -206,7 +237,8 @@
     -- case fromIntegral keyCode of
     case keyCode of
       65 -> do
-        atomicModifyIORef stateRef (\state -> ((state {paddlePos = (paddlePos state) - paddleVx}), ()))
+        atomicModifyIORef stateRef
+          (\state -> ((state {paddlePos = (paddlePos state) - paddleVx}), ()))
       68 -> do
         atomicModifyIORef stateRef (\state -> ((state {paddlePos = (paddlePos state) + paddleVx}), ()))
       83 -> do
@@ -225,7 +257,11 @@
       (x, y)   = ballPos state
       (vx, vy) = ballSpeed state
 
+  changeBallSpeed :: GameState -> (Double, Double) -> GameState
+  changeBallSpeed state speed = state {ballSpeed = speed}
 
+  dist :: Point -> Point -> Double
+  dist p1 p2 = sqrt ( (fst p2 - fst p1) ** 2 + (snd p2 - snd p1)** 2)
   -- return the directional distance between two points.
   -- Vx and Vy provide the direction of the projectile
   -- TODO: consider passing all the state values as args, so you don't couple
@@ -303,30 +339,56 @@
   --       else
   --         (1,1)
 
-  nextPos2 :: GameObj -> GameState -> Maybe Point
-  nextPos2 Ball state =
+  -- nextPos :: GameObj -> GameState -> Maybe Point
+  nextPos :: GameObj -> GameState -> IORef GameState ->  (Point, (Double, Double))
+  -- nextPos Ball state | trace  ("dist=" ++ show (distBetweenWallSide (collisionWall p' vx vy) vx vy BottomSide)) False=undefined
+  -- nextPos Ball state stateRef | trace  ("dist cp=" ++ show (dist p (collisionWall p' vx vy) )) False=undefined
+  --   where vx = fst $ ballSpeed state
+  --         vy = snd $ ballSpeed state
+  --         p  = ballPos state
+  --         p' = (fst p + vx, snd p + vy)
+  -- nextPos Ball state stateRef| trace  ("dist p1, p1'=" ++ show (dist p p' )) False=undefined
+  --   where vx = fst $ ballSpeed state
+  --         vy = snd $ ballSpeed state
+  --         p  = ballPos state
+  --         p' = (fst p + vx, snd p + vy)
+  nextPos Ball state stateRef =
     if collisionTest p' Wall
-      then
+      then do
+        -- p
+        -- (0.0,0.0) :: Point
+        -- tmp <- do
+        --   return (7.0, 1.0)
+          -- let tmp = atomicWriteIORef stateRef $ changeBallSpeed state (13,3)
+          -- return (0.0, 0.0)
+          -- return ()
+        -- (0.0,0.0)
+        -- do
+        --   let tmp =atomicWriteIORef stateRef $ changeBallSpeed state (vx, -1 * vy)
+        --   return (0,0)
+        -- (hitPoint, (vx, -vy))
+        (( (fst hitPoint), (snd hitPoint) - 4), (vx, -vy))
+        -- atomicModifyIORef state (\state -> ((snd ballSpeed state) = -1 * (snd ballSpeed state)), ()))
+        -- atomicModifyIORef state (\state -> ((state {ballSpeed = (fst $ ballSpeed state, snd $ ballSpeed state)}), ()))
         -- Just (0, 0)
-        collisionWall p' vx vy
+        -- let collisionPoint = collisionWall p' vx vy
+        -- let dist = distBetweenWallSide collisionPoint vx vy BottomSide
+        -- return (0.0, 0.0)
         -- Next: do all the ratio stuff
-      else
-        Just p'
-    where
-      vx = fst $ ballSpeed state
-      vy = snd $ ballSpeed state
-      p  = ballPos state
-      p' = (fst p + vx, snd p + vy)
-  -- nextPos2 Ball state = do
-  --   let vx = fst $ ballSpeed state
-  --   let vy = snd $ ballSpeed state
-  --   -- collisionWall (ballPos state) (fst $ ballSpeed state) (snd $ ballSpeed state)
-  --   let cp = collisionWall (ballPos state) vx vy
-  --   let distToWall =
-  --   return (0.0, 0.0)
-    -- return $ Just $ Point 0.0 0.0
-    -- return $ Just $ (0.0, 0.0)
+        -- set new vx, vy
 
+      else
+        -- Just p'
+        (p', (vx, vy))
+    where vx = fst $ ballSpeed state
+          vy = snd $ ballSpeed state
+          p  = ballPos state
+          p' = (fst p + vx, snd p + vy)
+          hitPoint = collisionWall p' vx vy
+          distToHitPoint = distBetweenWallSide hitPoint vx vy BottomSide
+          ratio = distToHitPoint / sqrt (vx ** 2 + vy ** 2)
+          -- tmp = do
+          --   atomicWriteIORef stateRef $ changeBallSpeed state (vx, -1 * vy)
 
   -- Note: we only call this if a (potential) collision is detected, so
   -- we know were always one vx or vy delta from hitting a wall.
@@ -372,9 +434,8 @@
   -- current point is beyond the wall (that's why we need Vx and Vy so we
   -- know where it came from)
   -- If a hit, return the collision point, otherwise return Nothing
-  collisionWall :: Point -> Vx -> Vy -> Maybe Point
-  -- collisionWall :: Point -> Vx -> Vy -> IO String
-  -- collisionWall :: Int -> Vx -> Vy -> IO String
+  -- If a hit, return the collision point, otherwise return the original point
+  collisionWall :: Point -> Vx -> Vy ->  Point
   -- collisionWall p vx vy | trace ("trace collisionWall px=" ++ show (fst  p)) False = undefined
   -- collisionWall p vx vy | trace ("trace collisionWall cw=" ++ show canvasWidth) False = undefined
   -- collisionWall p vx vy | trace ("collisionWall " ++ show vx) False = undefined
@@ -387,22 +448,14 @@
         let nearSide = nearestSide p vx vy
         in
           case nearSide of
-            TopSide -> Just (0.0,0)
-            LeftSide -> Just (1.0,0)
-            -- BottomSide -> Just (distBetweenWallSide p vx vy BottomSide,0)
-            -- BottomSide -> Just $ vectBetweenWallSide p vx vy BottomSide
-            -- BottomSide -> Just $ vectBetweenWallSide p vx vy BottomSide
-            BottomSide -> Just $ (x - fst deltaVect, y - snd deltaVect)
+            TopSide -> (0.0,0)
+            LeftSide -> (1.0,0)
+            BottomSide -> (x - fst deltaVect, y - snd deltaVect)
               where
                 deltaVect = vectBetweenWallSide p vx vy BottomSide
-            RightSide -> Just (3.0,0)
-          -- Just (0,0)
-          -- | nearSide == BottomSide = Just (0,0)
+            RightSide -> (3.0,0)
       else
-        Nothing
-        -- | px > canvasWidth = Just (0,0)
-        -- | py > canvasHeight = Just (0,0)
-        -- | otherwise = Nothing
+        p
     where
       x = fst p
       y = snd p
@@ -411,13 +464,19 @@
   animate canvas stateRef = do
     state <- readIORef stateRef -- extract state from reference object
     renderState canvas state -- draw game picture
-    atomicWriteIORef stateRef $ update state -- update state and rewrite state reference^
-    let abc = collisionWall (ballPos state) (fst $ ballSpeed state) (snd $ ballSpeed state)
-    print $ "abc=" ++  show abc
-    let np = nextPos2 Ball state
-    print $ "nextPos=" ++ show np
+    -- atomicWriteIORef stateRef $ update state -- update state and rewrite state reference^
+    -- let abc = collisionWall (ballPos state) (fst $ ballSpeed state) (snd $ ballSpeed state)
+    -- print $ "abc=" ++  show abc
+    let np = nextPos Ball state stateRef
+    -- atomicWriteIORef stateRef $ changeBallSpeed state (fst $ snd $ np, 1 * (snd $ ballSpeed state))
+    -- atomicWriteIORef stateRef $ changeBallSpeed state $ fst np
+    atomicWriteIORef stateRef $ state {ballPos = fst np, ballSpeed = snd np}
+    -- atomicWriteIORef stateRef $ state {ballSpeed = snd np}
+    state <- readIORef stateRef
+    print $ ("nextPos=" ++ (show $ fst np))
+    print $ ("np.ballSpeed=" ++ (show $ snd np))
 
-    -- setTimer (Once 10) $ animate canvas stateRef
+    setTimer (Once 10) $ animate canvas stateRef
     return ()
     where
       update = moveBall
