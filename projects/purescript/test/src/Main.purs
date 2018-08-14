@@ -1,25 +1,18 @@
 module Main where
 
 import Prelude
-
-import Effect (Effect)
-import Effect.Console (log)
--- import UserMod ((*))
+import ToneDeaf
 import UserMod
-import Data.Array (filter, (..))
-
--- import Audio.WebAudio.Types
--- import Audio.WebAudio.AudioContext
--- import Audio.WebAudio.AudioParam
--- -- import Audio.WebAudio.OscillatorNode
--- import Audio.WebAudio.Oscillator
--- import Audio.WebAudio.DestinationNode
 
 import Audio.WebAudio.AudioParam (getValue, setValue, setValueAtTime)
 import Audio.WebAudio.BaseAudioContext (createGain, createOscillator, currentTime, destination, newAudioContext, resume, state, suspend)
 import Audio.WebAudio.GainNode (gain)
 import Audio.WebAudio.Oscillator (OscillatorType(..), frequency, setOscillatorType, startOscillator, stopOscillator)
-import Audio.WebAudio.Types (AudioContext, GainNode, OscillatorNode, AudioContextState(..), connect )
+import Audio.WebAudio.Types (AudioContext, GainNode, OscillatorNode, AudioContextState(..), connect)
+import Data.Array (filter, (..))
+import Effect (Effect)
+import Effect.Console (log)
+import Effect.Timer as T
 
 -- main :: Effect Unit
 -- main = do
@@ -30,10 +23,29 @@ import Audio.WebAudio.Types (AudioContext, GainNode, OscillatorNode, AudioContex
 
   -- let result = show factors
   -- log factors
+loopDo :: Array Int
+loopDo = do
+  i <- 1..5
+  i <- 1..5
+  pure i
+
+-- main :: Effect Unit
+-- main = do
+--   log $ "hi" <> show loopDo
 -- main :: forall eff. (Eff (wau :: WebAudio, dom :: DOM | eff) Unit)
 -- main :: forall eff. (Effect (wau :: WebAudio, dom :: DOM | eff) Unit)
-main :: Effect Unit
+-- main :: Effect Unit
 main = do
+  -- getBtn "btn"
+  void $ T.setTimeout 10 do
+    log "timeout increment counter"
+    getBtn
+    
+  beep 440.0
+  beep 880.0
+
+beep1 :: Number -> Effect Unit
+beep1 freq = do
   -- ctx <- makeAudioContext
   ctx <- newAudioContext
   osc <- createOscillator ctx
@@ -44,7 +56,9 @@ main = do
   -- osc.frequency.value <- 440 -- Hz
   -- setValue 440.0 $ frequency osc
   -- g <- createGain ctx
-  setValue 440.0 =<< frequency osc
+  -- let freq = sampleFreq
+  -- setValue 440.0 =<< frequency osc
+  setValue freq =<< frequency osc
   -- frequency osc <- 440.0
   -- do
   -- let x= setValue 440.0 $ frequency osc
