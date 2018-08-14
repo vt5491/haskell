@@ -18,11 +18,13 @@ import Effect (Effect)
 import Effect.Console (log)
 import Web.DOM.Element (toEventTarget)
 import Web.DOM.ParentNode (querySelector)
+import Web.Event.CustomEvent ( CustomEvent)
 import Web.Event.Event (EventType(..), Event)
-import Web.Event.EventTarget (EventTarget, addEventListener, eventListener)
+import Web.Event.EventTarget (EventTarget, addEventListener, dispatchEvent, eventListener)
 import Web.HTML (window)
 import Web.HTML.HTMLDocument (toParentNode, toDocument)
 import Web.HTML.HTMLElement (toElement, fromElement, className, HTMLElement)
+import Web.DOM (Element)
 import Web.HTML.Window (Window, document)
 -- import Web.HTML.Window (Window)
 -- import Web.HTML (window)
@@ -129,19 +131,7 @@ getBtn ::  Effect Unit
 getBtn = do
   log "ToneDeaf: now in getBtn"
   doc <- map toParentNode (window >>= document)
-  -- doc <- map toParentNode (window >>= document)
-  -- doc <- map toParentNode ( document)
-  -- let doc = map toParentNode ( document)
-  -- doc <-  map toParentNode $ document
-  -- doc <- "hit"
-  -- doc <- document window
-  -- doc <- map toParentNode (htmlWindow >>= document)
-  -- let doc :: Effect
-  -- let doc :: Effect =<< (map toParentNode $ document)
-  -- let doc =<< map toParentNode $  document
-  -- doc <- toDocument document
   mbtn <- querySelector (wrap "#btn") doc
-  -- mbtn <- querySelector "#btn" doc
   case mbtn of
     Nothing -> log "mbtn failed"
     Just btn -> do
@@ -150,7 +140,6 @@ getBtn = do
         Nothing -> log "mhtml failed"
         Just htmlEl -> do
           let cn = className htmlEl
-          -- log $ "cn=" <> map cn
           log $ "classname below:"
           cn >>= log
           -- "cn=" <> cn >>= log
@@ -176,79 +165,15 @@ getBtn = do
             ((toEventTarget <<< toElement) htmlEl)
             -- htmlEl
           -- end method 2
+          vtEvtListener <- (eventListener vtEvtHandler)
+          addEventListener
+            (EventType "vtEvt")
+            vtEvtListener
+            false
+            ((toEventTarget <<< toElement) htmlEl)
           pure unit
-      -- let cn = className htmlEl
-      -- htmlEl <- fromElement button
-
-
-
-      -- htmlEl <- button
-      -- cn <- (fromElement htmlEl)
       pure unit
 
-  -- button <- querySelector (wrap "#btn") doc
-  -- case button of
-  --   Nothing -> pure unit
-  --   Just btn -> do
-  --     let htmlEl = fromElement btn
-  --     case htmlEl of
-  --       Nothing -> pure unit
-  --       Just he -> do
-  --         let cn = className he
-  --         -- log $ "cn=" <> map cn
-  --         cn >>= log
-  --         -- "cn=" <> cn >>= log
-  --         log $ "abc"
-  --         -- cn  do
-  --         --   log cn
-  --         pure unit
-  --     -- let cn = className htmlEl
-  --     -- htmlEl <- fromElement button
-  --     -- htmlEl <- button
-  --     -- cn <- (fromElement htmlEl)
-  --     pure unit
-  -- el <- button
-  -- el do
-  --   htmlEl <- fromElement el
-  --   pure unit
-  -- cn <- className $ (map fromElement el)
-  -- case el of
-  --   Nothing -> pure unit
-  --   Just el -> do
-  --     cn <- className el
-  --     pure unit
-  -- button do
-  --   el <- button
-  --   case el of
-  --     Nothing -> pure unit
-  --     Just el -> do
-  --       cn <- className el
-  --       pure unit
-    -- cn <- className htmlEl
-    -- pure unit
-  -- cn2 <- className button
-  -- let cn = getClassName button
-  -- log $ "classname=" <> show cn
-  -- do
-    -- log $ "now in inner do" <> className  button
-    -- let cn = map className ( map fromElement button )
-    -- -- let cn = className ( fromElement button )
-    -- let cn = (button >>= fromElement )
-    -- pure cn
-    -- log $ "now in inner do" <> map className ( map fromElement button )
-
-  -- let unbox = button
-  -- log $ "className=" <> button >>= getClassName
-  -- className <*> button
-  -- btnClass <- maybe "no-class" (\x -> x) $ className button
-  -- btnClass <- maybe Element (\x -> x) button
-  -- btnClass <- button >>= fromElement >>= className
-  -- btnClass <- className <<= (button >>= fromElement)
-  -- btnClass <- fromElement button >>= className
-  -- btnClass <- button >>= fromElement >>= className
-  -- log "btn-class=" <>
-  -- button <- querySelector (wrap "#btn") =<< (map toParentNode $ document)
-  -- button <- querySelector (wrap "#btn") document
   pure unit
 
 -- getClassName :: Maybe HTMLElement -> String
@@ -271,8 +196,95 @@ btnDownHandler e = log "btn pressed"
 -- btnHandler2 :: forall e. Event -> GameEffect e Unit
 -- btnHandler2 :: forall e. Event -> Effect e Unit
 btnHandler2 :: Event -> Effect Unit
-btnHandler2 a = do
+btnHandler2 e = do
   log "btn2 pressed"
   beep 880.0
+  -- dispatchEvent :: Event -> EventTarget -> Effect Boolean
+  -- let custEvt = customEvent $ EventType "vtEvt"
+  -- TODO: how to create a new Event?
+  let custEvt =  EventType "vtEvt"
+  dispatchVtEvt custEvt
+  -- dispatchVtEvt e
+  -- let evtTgt = do
+  -- evtTgt <- do
+  --   doc <- map toParentNode (window >>= document)
+  --   mBodyEl <- querySelector (wrap "body") doc
+  --   case mBodyEl of
+  --     Nothing -> log "mBodyEl failed"
+  --     just bodyEl = pure bodyEl
+  --
+  -- dispatchEvent custEvt evtTgt
+  pure unit
 
 btnHandler3 = 7
+
+vtEvtHandler :: Event -> Effect Unit
+vtEvtHandler e = do
+  log "vtEvtHandler entered"
+
+
+-- getBodyEl :: Effect Unit
+-- getBodyEl :: Maybe Element
+-- getBodyEl = do
+--   -- doc <- map toParentNode (window >>= document)
+--   let doc = map toParentNode (window >>= document)
+--   -- mEl <- querySelector (wrap "body") doc
+--   -- mEl <- querySelector (wrap "body") doc
+--   -- querySelector (wrap "body")  <<< (map  <<< toParentNode (window >>= document))
+--   -- querySelector (wrap "body") $  doc
+--   -- let mEl = (doc >>= querySelector (wrap "body"))
+--   let mBodyEl = (doc >>= querySelector (wrap "body"))
+--   -- pure <<< bodyEl
+--   mBodyEl <- do
+--     evtTgt <- Just mBodyEl
+--     -- pure abc
+--     let custEvt = EventType "vtEvt"
+--     -- dispatchEvent :: Event -> EventTarget -> Effect Boolean
+--     dispatchEvent custEvt evtTgt
+--     -- Nothing
+--     -- <<< mBodyEl
+--     -- mBodyEl >>= HTMLElement
+--     -- case mBodyEl of
+--     --   Nothing -> Nothing
+--     --   just el -> Just el
+--   --   -- bodyEl
+--   --   pure unit
+--   -- pure bodyEl
+--
+--   -- mEl -> do
+--   --   case mEl of
+--   --     Nothing -> Nothing
+--   --     Just el -> pure el
+--   -- pure unit
+--   Nothing
+  -- Just abc
+
+-- dispatchVtEvt :: Event -> Maybe Element
+dispatchVtEvt :: Event -> Effect Unit
+dispatchVtEvt e = do
+  doc <- map toParentNode (window >>= document)
+  mBodyEl <- querySelector (wrap "body") doc
+  -- mBodyEl <- do
+    -- evtTgt <- Just mBodyEl
+    -- let custEvt = EventType "vtEvt"
+    -- dispatchEvent :: Event -> EventTarget -> Effect Boolean
+    -- dispatchEvent e evtTgt
+  case mBodyEl of
+    Nothing -> log "mBodyEl is Nothing"
+    -- Nothing -> pure unit
+    Just bodyEl -> do
+      -- let rc = dispatchEvent e (toEventTarget bodyEl)
+      rc <- dispatchEvent e (toEventTarget bodyEl)
+      -- rc -> do
+      case rc of
+        false -> log "bad rc"
+        -- true -> pure unit
+        true -> log "good rc"
+      -- result <- do
+      -- case mRc of
+      --   Nothing -> log "fail"
+      --   Just rc ->
+
+
+  -- Nothing
+  pure unit
