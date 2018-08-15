@@ -153,7 +153,7 @@ getBtn = do
           -- (eventListener (emit <<< Left <<< EMouseMove)) false target
 
           -- method 2
-          evtListener <- (eventListener btnHandler2)
+          evtListener <- (eventListener btnHandler)
           -- addEventListener :: EventType -> EventListener -> Boolean -> EventTarget -> Effect Unit
           addEventListener
             (EventType "mousedown")
@@ -195,14 +195,19 @@ btnDownHandler e = log "btn pressed"
 
 -- btnHandler2 :: forall e. Event -> GameEffect e Unit
 -- btnHandler2 :: forall e. Event -> Effect e Unit
-btnHandler2 :: Event -> Effect Unit
-btnHandler2 e = do
-  log "btn2 pressed"
-  beep 880.0
+btnHandler :: Event -> Effect Unit
+btnHandler e = do
+  log "btn pressed"
+  beep 890.0
   -- dispatchEvent :: Event -> EventTarget -> Effect Boolean
   -- let custEvt = customEvent $ EventType "vtEvt"
+  let r = toneDeafJsDoIt 5
+  log $ "btnHandler: r=" <> r
   -- TODO: how to create a new Event?
-  let custEvt =  EventType "vtEvt"
+  -- let custEvt =  EventType "vtEvt"
+  let custEvt = createVtEvt 1
+  -- let w = toneDeafEvt custEvt
+  -- let x = toneDeafAbc 5
   dispatchVtEvt custEvt
   -- dispatchVtEvt e
   -- let evtTgt = do
@@ -263,18 +268,20 @@ vtEvtHandler e = do
 dispatchVtEvt :: Event -> Effect Unit
 dispatchVtEvt e = do
   doc <- map toParentNode (window >>= document)
-  mBodyEl <- querySelector (wrap "body") doc
+  -- mBodyEl <- querySelector (wrap "body") doc
+  -- note: you *do* have to dispatch to the same element you put the listener on
+  mBtnEl <- querySelector (wrap "#btn") doc
   -- mBodyEl <- do
     -- evtTgt <- Just mBodyEl
     -- let custEvt = EventType "vtEvt"
     -- dispatchEvent :: Event -> EventTarget -> Effect Boolean
     -- dispatchEvent e evtTgt
-  case mBodyEl of
+  case mBtnEl of
     Nothing -> log "mBodyEl is Nothing"
     -- Nothing -> pure unit
-    Just bodyEl -> do
+    Just btnEl -> do
       -- let rc = dispatchEvent e (toEventTarget bodyEl)
-      rc <- dispatchEvent e (toEventTarget bodyEl)
+      rc <- dispatchEvent e (toEventTarget btnEl)
       -- rc -> do
       case rc of
         false -> log "bad rc"
@@ -288,3 +295,9 @@ dispatchVtEvt e = do
 
   -- Nothing
   pure unit
+
+foreign import createVtEvt :: Int -> Event
+foreign import toneDeafJsDoIt :: Int -> String
+-- foreign import debugIt :: Int -> String
+foreign import toneDeafAbc :: Int -> String
+foreign import toneDeafEvt :: Event -> String

@@ -37,10 +37,13 @@ loopDo = do
 -- main :: Effect Unit
 main = do
   -- getBtn "btn"
+  let s = " world"
+  let r = mainJsDoIt 5
+  log $ "main: r=" <> r <> s
   void $ T.setTimeout 10 do
     log "timeout increment counter"
     getBtn
-    
+
   beep 440.0
   beep 880.0
 
@@ -72,3 +75,5 @@ beep1 freq = do
   -- osc.stop(context.currentTime + 2); -- stop 2 seconds after the current time
   stopOscillator 1.0 osc
   pure unit
+
+foreign import mainJsDoIt :: Int -> String
